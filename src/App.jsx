@@ -3,8 +3,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css";
 
-const API = "https://contract-final.onrender.com/api/contracts";
-const USERS_API = "https://contract-final.onrender.com/api/users";
+const API = "https://contract-final-1.onrender.com/api/contracts";
+const USERS_API = "https://contract-final-1.onrender.com/api/users";
 
 const EMPTY_FORM = {
   contractName: "",
