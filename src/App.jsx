@@ -1,10 +1,10 @@
-
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css";
 
 const API = "https://contract-final-1.onrender.com/api/contracts";
 const USERS_API = "https://contract-final-1.onrender.com/api/users";
+const TELEGRAM_API = "https://contract-final-1.onrender.com/api/telegram";
 
 const EMPTY_FORM = {
   contractName: "",
@@ -80,6 +80,10 @@ function App() {
   const [showUserForm, setShowUserForm] = useState(false);
   const [userForm, setUserForm] = useState(EMPTY_USER);
 
+  // Telegram states
+  const [telegramLoadingId, setTelegramLoadingId] = useState(null);
+  const [telegramLinks, setTelegramLinks] = useState({});
+
   // Load contracts
   const loadContracts = async () => {
     try {
@@ -92,7 +96,7 @@ function App() {
       console.error("Fetch error:", err);
       setError(
         err.response?.data?.message ||
-        "Unable to load contracts. Please check your backend connection and try again."
+          "Unable to load contracts. Please check your backend connection and try again."
       );
     } finally {
       setLoading(false);
@@ -116,7 +120,7 @@ function App() {
       console.error("Users fetch error:", err);
       setUserError(
         err.response?.data?.message ||
-        "Unable to load users. Please check your backend connection."
+          "Unable to load users. Please check your backend connection."
       );
     } finally {
       setUsersLoading(false);
@@ -179,7 +183,6 @@ function App() {
 
       setShowUserForm(false);
       setUserForm(EMPTY_USER);
-      setUserSuccess("User added successfully!");
 
       await loadUsers();
 
@@ -189,8 +192,8 @@ function App() {
 
       setUserError(
         err.response?.data?.message ||
-        err.response?.data?.error ||
-        "Unable to add user. Check the WhatsApp number or try again."
+          err.response?.data?.error ||
+          "Unable to add user. Check the WhatsApp number or try again."
       );
     } finally {
       setUserSaving(false);
@@ -212,18 +215,62 @@ function App() {
 
       await axios.delete(`${USERS_API}/${id}`);
 
-      setUserSuccess("User deleted successfully!");
+      setTelegramLinks((previous) => {
+        const updated = { ...previous };
+        delete updated[id];
+        return updated;
+      });
+
       await loadUsers();
+
       setUserSuccess("User deleted successfully!");
     } catch (err) {
       console.error("Delete user error:", err);
 
       setUserError(
         err.response?.data?.message ||
-        "Unable to delete user. Please try again."
+          "Unable to delete user. Please try again."
       );
     } finally {
       setUserDeletingId(null);
+    }
+  };
+
+  // Generate Telegram connection link
+  const connectTelegram = async (userId) => {
+    try {
+      setTelegramLoadingId(userId);
+      setUserError("");
+      setUserSuccess("");
+
+      const response = await axios.post(
+        `${TELEGRAM_API}/generate-link/${userId}`
+      );
+
+      const link = response.data?.link;
+
+      if (!link) {
+        throw new Error("Telegram link was not returned by the server.");
+      }
+
+      setTelegramLinks((previous) => ({
+        ...previous,
+        [userId]: link,
+      }));
+
+      setUserSuccess(
+        "Telegram connection link generated. Open Telegram and press Start."
+      );
+    } catch (err) {
+      console.error("Telegram connection error:", err);
+
+      setUserError(
+        err.response?.data?.message ||
+          err.message ||
+          "Unable to generate Telegram connection link."
+      );
+    } finally {
+      setTelegramLoadingId(null);
     }
   };
 
@@ -305,7 +352,9 @@ function App() {
       console.error("Save error:", err);
       setError(
         err.response?.data?.message ||
-        `Unable to ${editingId !== null ? "update" : "add"} the contract. Please try again.`
+          `Unable to ${
+            editingId !== null ? "update" : "add"
+          } the contract. Please try again.`
       );
     } finally {
       setSaving(false);
@@ -329,7 +378,7 @@ function App() {
       console.error("Delete error:", err);
       setError(
         err.response?.data?.message ||
-        "Unable to delete this contract. Please try again."
+          "Unable to delete this contract. Please try again."
       );
     } finally {
       setDeletingId(null);
@@ -402,7 +451,6 @@ function App() {
       </aside>
 
       <main className="main">
-
         {/* DASHBOARD PAGE */}
         {currentPage === "dashboard" && (
           <>
@@ -584,7 +632,7 @@ function App() {
               <div>
                 <h1>Manage Users</h1>
                 <p>
-                  Manage registered users who receive WhatsApp notifications.
+                  Manage registered users who receive Telegram notifications.
                 </p>
               </div>
 
@@ -595,9 +643,10 @@ function App() {
 
             <section className="welcome-banner">
               <div>
-                <h2>WhatsApp Notification Recipients</h2>
+                <h2>Telegram Notification Recipients</h2>
                 <p>
-                  Every registered user will receive contract expiry reminders.
+                  Connect each registered user to Telegram to receive contract
+                  expiry reminders.
                 </p>
               </div>
               <div className="banner-symbol">📱</div>
@@ -609,13 +658,21 @@ function App() {
                 <p>Total Registered Users</p>
                 <h2>{users.length}</h2>
               </div>
+
+              <div className="stat-card">
+                <div className="stat-icon green">✓</div>
+                <p>Telegram Connected</p>
+                <h2>
+                  {users.filter((user) => user.telegramChatId).length}
+                </h2>
+              </div>
             </section>
 
             <section className="contracts-section">
               <div className="section-header">
                 <div>
                   <h2>Registered Users</h2>
-                  <p>View and manage WhatsApp notification recipients</p>
+                  <p>Manage users and their Telegram connections</p>
                 </div>
 
                 <button
@@ -711,6 +768,7 @@ function App() {
                       <th>USER ID</th>
                       <th>NAME</th>
                       <th>WHATSAPP NUMBER</th>
+                      <th>TELEGRAM</th>
                       <th>ACTION</th>
                     </tr>
                   </thead>
@@ -718,13 +776,13 @@ function App() {
                   <tbody>
                     {usersLoading ? (
                       <tr>
-                        <td colSpan="4" className="empty">
+                        <td colSpan="5" className="empty">
                           Loading users...
                         </td>
                       </tr>
                     ) : users.length === 0 ? (
                       <tr>
-                        <td colSpan="4" className="empty">
+                        <td colSpan="5" className="empty">
                           No users registered yet. Add your first user.
                         </td>
                       </tr>
@@ -733,11 +791,40 @@ function App() {
                         <tr key={user.id}>
                           <td>{user.id}</td>
 
-                          <td className="contract-name">
-                            {user.name}
-                          </td>
+                          <td className="contract-name">{user.name}</td>
 
                           <td>{user.whatsappNumber}</td>
+
+                          <td>
+                            {user.telegramChatId ? (
+                              <span className="status active">
+                                Connected
+                              </span>
+                            ) : telegramLinks[user.id] ? (
+                              <a
+                                href={telegramLinks[user.id]}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="edit-btn"
+                                style={{
+                                  display: "inline-block",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                Open Telegram
+                              </a>
+                            ) : (
+                              <button
+                                className="edit-btn"
+                                onClick={() => connectTelegram(user.id)}
+                                disabled={telegramLoadingId === user.id}
+                              >
+                                {telegramLoadingId === user.id
+                                  ? "Generating..."
+                                  : "Connect Telegram"}
+                              </button>
+                            )}
+                          </td>
 
                           <td>
                             <button
