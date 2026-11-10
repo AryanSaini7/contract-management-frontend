@@ -443,11 +443,6 @@ function App() {
           <span>👥</span> Manage Users
         </button>
 
-        <div className="sidebar-footer">
-          <span className="online-dot" />
-          Backend Integration
-          <strong>Spring Boot API</strong>
-        </div>
       </aside>
 
       <main className="main">
