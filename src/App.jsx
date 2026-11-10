@@ -1808,6 +1808,327 @@ function App() {
             </div>
           </div>
         )}
+
+        {/* Responsive layout overrides */}
+        <style>{`
+          * {
+            box-sizing: border-box;
+          }
+
+          @media (max-width: 900px) {
+            .app {
+              width: 100%;
+              min-height: 100vh;
+              overflow-x: hidden;
+            }
+
+            .main {
+              width: 100%;
+              min-width: 0;
+              margin-left: 0 !important;
+              padding: 22px !important;
+            }
+
+            .topbar {
+              flex-wrap: wrap;
+              gap: 14px;
+            }
+
+            .topbar > div {
+              min-width: 0;
+            }
+
+            .dashboard-overview {
+              grid-template-columns: minmax(0, 1fr) !important;
+            }
+
+            .dashboard-alerts-column {
+              grid-template-rows: auto auto !important;
+            }
+
+            .contracts-section,
+            .welcome-banner {
+              min-width: 0;
+              width: 100%;
+            }
+          }
+
+          @media (max-width: 768px) {
+            .app {
+              display: flex !important;
+              flex-direction: column !important;
+            }
+
+            .sidebar {
+              position: relative !important;
+              top: auto !important;
+              left: auto !important;
+              width: 100% !important;
+              min-width: 0 !important;
+              height: auto !important;
+              min-height: 0 !important;
+              padding: 14px 16px !important;
+              display: flex !important;
+              flex-direction: row !important;
+              flex-wrap: wrap !important;
+              align-items: center !important;
+              gap: 10px !important;
+              overflow: visible !important;
+              z-index: 5;
+            }
+
+            .brand {
+              width: 100%;
+              margin: 0 0 4px !important;
+            }
+
+            .menu-title {
+              display: none !important;
+            }
+
+            .nav-item,
+            .nav-button {
+              display: inline-flex !important;
+              flex: 1 1 auto;
+              justify-content: center;
+              align-items: center;
+              width: auto !important;
+              min-width: max-content;
+              margin: 0 !important;
+              padding: 10px 12px !important;
+              white-space: nowrap;
+              font-size: 13px !important;
+            }
+
+            .main {
+              width: 100% !important;
+              min-width: 0 !important;
+              margin: 0 !important;
+              padding: 18px 14px 28px !important;
+            }
+
+            .topbar h1 {
+              font-size: 25px !important;
+              line-height: 1.2;
+            }
+
+            .topbar p {
+              font-size: 13px !important;
+            }
+
+            .primary-btn,
+            .refresh-btn {
+              min-height: 42px;
+              max-width: 100%;
+            }
+
+            .dashboard-stats-grid,
+            .stats-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              grid-template-rows: auto !important;
+              gap: 10px !important;
+            }
+
+            .stat-card {
+              min-width: 0;
+              padding: 14px !important;
+            }
+
+            .stat-card p {
+              overflow-wrap: anywhere;
+              font-size: 12px !important;
+            }
+
+            .stat-card h2 {
+              font-size: 24px !important;
+            }
+
+            .expired-contracts-panel,
+            .expiry-alert-panel {
+              padding: 14px !important;
+            }
+
+            .section-header {
+              flex-wrap: wrap;
+              gap: 12px;
+            }
+
+            .contract-filters {
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: stretch !important;
+              width: 100%;
+              gap: 12px !important;
+            }
+
+            .search-box,
+            .status-filter {
+              width: 100% !important;
+              max-width: none !important;
+              flex: 1 1 auto !important;
+            }
+
+            .table-container {
+              display: block;
+              width: 100%;
+              max-width: 100%;
+              overflow-x: auto !important;
+              overflow-y: hidden;
+              -webkit-overflow-scrolling: touch;
+              border-radius: 10px;
+            }
+
+            .table-container table {
+              min-width: 760px;
+              width: max-content;
+            }
+
+            .table-container th,
+            .table-container td {
+              white-space: nowrap;
+              padding: 11px 12px !important;
+            }
+
+            .action-buttons {
+              display: flex;
+              gap: 6px;
+              flex-wrap: nowrap;
+            }
+
+            .welcome-banner {
+              gap: 12px;
+              padding: 16px !important;
+            }
+
+            .banner-symbol {
+              flex: 0 0 auto;
+            }
+
+            .user-form-panel {
+              width: 100%;
+              padding: 16px !important;
+            }
+
+            .modal-overlay {
+              padding: 12px !important;
+              align-items: center !important;
+              overflow-y: auto;
+            }
+
+            .modal {
+              width: 100% !important;
+              max-width: 520px !important;
+              max-height: calc(100dvh - 24px);
+              overflow-y: auto;
+              margin: auto;
+              padding: 18px !important;
+            }
+
+            .date-grid {
+              grid-template-columns: minmax(0, 1fr) !important;
+              gap: 12px !important;
+            }
+
+            .modal form input,
+            .modal form textarea,
+            .user-form-panel form input {
+              width: 100%;
+              max-width: 100%;
+              font-size: 16px !important;
+            }
+
+            .form-actions {
+              display: flex;
+              flex-wrap: wrap;
+              gap: 10px;
+            }
+
+            .form-actions button {
+              flex: 1 1 130px;
+              min-height: 42px;
+            }
+          }
+
+          @media (max-width: 480px) {
+            .sidebar {
+              padding: 12px !important;
+              gap: 7px !important;
+            }
+
+            .brand {
+              margin-bottom: 5px !important;
+            }
+
+            .nav-item,
+            .nav-button {
+              flex: 1 1 calc(50% - 7px);
+              min-width: 0;
+              padding: 10px 7px !important;
+              font-size: 12px !important;
+            }
+
+            .main {
+              padding: 15px 11px 24px !important;
+            }
+
+            .topbar {
+              align-items: flex-start;
+            }
+
+            .topbar .primary-btn {
+              width: 100%;
+            }
+
+            .dashboard-stats-grid,
+            .stats-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+            }
+
+            .stat-card {
+              padding: 12px !important;
+            }
+
+            .stat-icon {
+              width: 34px;
+              height: 34px;
+            }
+
+            .expired-contracts-panel,
+            .expiry-alert-panel {
+              padding: 12px !important;
+            }
+
+            .expired-contracts-panel h2,
+            .expiry-alert-panel h2 {
+              font-size: 16px !important;
+            }
+
+            .section-header h2 {
+              font-size: 18px !important;
+            }
+
+            .section-header > button {
+              width: 100%;
+            }
+
+            .modal-overlay {
+              padding: 8px !important;
+            }
+
+            .modal {
+              max-height: calc(100dvh - 16px);
+              padding: 15px !important;
+            }
+
+            .modal-header {
+              gap: 10px;
+            }
+
+            .modal-header h2 {
+              font-size: 19px !important;
+            }
+          }
+        `}</style>
       </main>
     </div>
   );
