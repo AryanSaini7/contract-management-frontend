@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import "./App.css";
@@ -65,6 +66,9 @@ function App() {
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [expirySlideIndex, setExpirySlideIndex] = useState(0);
+  const [expiredSlideIndex, setExpiredSlideIndex] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -143,7 +147,13 @@ function App() {
     setUserSuccess("");
   };
 
-  // Add user form
+  // Open All Contracts page
+  const openContractsPage = () => {
+    setCurrentPage("contracts");
+    setError("");
+  };
+
+  // User form
   const handleUserChange = (event) => {
     const { name, value } = event.target;
 
@@ -289,6 +299,11 @@ function App() {
     if (start && start > today) return "UPCOMING";
     if (end && end <= today) return "EXPIRED";
 
+    if (end) {
+      const daysLeft = getDaysLeft(end);
+      if (daysLeft >= 1 && daysLeft <= 5) return "EXPIRING_SOON";
+    }
+
     return "ACTIVE";
   };
 
@@ -385,15 +400,33 @@ function App() {
     }
   };
 
-  // Contract statistics
+  // Search and status filtering
   const filteredContracts = contracts.filter((contract) => {
     const searchText = `${contract.contractName || ""} ${
       contract.partyName || ""
     }`.toLowerCase();
 
-    return searchText.includes(search.trim().toLowerCase());
+    const matchesSearch = searchText.includes(search.trim().toLowerCase());
+    const status = getStatus(contract);
+    const daysLeft = getDaysLeft(contract.endDate);
+
+    let matchesStatus = true;
+
+    if (statusFilter === "ACTIVE") {
+      matchesStatus =
+        status === "ACTIVE" && (daysLeft === null || daysLeft > 5);
+    } else if (statusFilter === "EXPIRING_SOON") {
+      matchesStatus = status === "EXPIRING_SOON";
+    } else if (statusFilter === "UPCOMING") {
+      matchesStatus = status === "UPCOMING";
+    } else if (statusFilter === "EXPIRED") {
+      matchesStatus = status === "EXPIRED";
+    }
+
+    return matchesSearch && matchesStatus;
   });
 
+  // Dashboard statistics
   const total = contracts.length;
 
   const active = contracts.filter(
@@ -407,6 +440,60 @@ function App() {
   const expired = contracts.filter(
     (contract) => getStatus(contract) === "EXPIRED"
   ).length;
+
+  // Expired contracts
+  const expiredContracts = contracts
+    .filter((contract) => getStatus(contract) === "EXPIRED")
+    .sort((a, b) => getDaysLeft(b.endDate) - getDaysLeft(a.endDate));
+
+  // Contracts expiring in 1–5 days
+  const expiringSoonContracts = contracts
+    .filter((contract) => getStatus(contract) === "EXPIRING_SOON")
+    .sort((a, b) => getDaysLeft(a.endDate) - getDaysLeft(b.endDate));
+
+  // Expiry alert automatic slider
+  useEffect(() => {
+    if (expiringSoonContracts.length <= 1) {
+      setExpirySlideIndex(0);
+      return;
+    }
+
+    const slideTimer = setInterval(() => {
+      setExpirySlideIndex(
+        (current) => (current + 1) % expiringSoonContracts.length
+      );
+    }, 4500);
+
+    return () => clearInterval(slideTimer);
+  }, [expiringSoonContracts.length]);
+
+  const visibleExpiryAlert =
+    expiringSoonContracts.length > 0
+      ? expiringSoonContracts[
+          expirySlideIndex % expiringSoonContracts.length
+        ]
+      : null;
+
+  // Expired contracts automatic slider
+  useEffect(() => {
+    if (expiredContracts.length <= 1) {
+      setExpiredSlideIndex(0);
+      return;
+    }
+
+    const expiredTimer = setInterval(() => {
+      setExpiredSlideIndex(
+        (current) => (current + 1) % expiredContracts.length
+      );
+    }, 4500);
+
+    return () => clearInterval(expiredTimer);
+  }, [expiredContracts.length]);
+
+  const visibleExpiredContract =
+    expiredContracts.length > 0
+      ? expiredContracts[expiredSlideIndex % expiredContracts.length]
+      : null;
 
   return (
     <div className="app">
@@ -430,6 +517,15 @@ function App() {
           <span>▦</span> Dashboard
         </button>
 
+        <button
+          className={`nav-item nav-button ${
+            currentPage === "contracts" ? "active" : ""
+          }`}
+          onClick={openContractsPage}
+        >
+          <span>▤</span> All Contracts
+        </button>
+
         <button className="nav-item nav-button" onClick={openAddForm}>
           <span>＋</span> Add Contract
         </button>
@@ -442,59 +538,690 @@ function App() {
         >
           <span>👥</span> Manage Users
         </button>
-
       </aside>
 
       <main className="main">
+
         {/* DASHBOARD PAGE */}
         {currentPage === "dashboard" && (
           <>
             <header className="topbar">
               <div>
                 <h1>Dashboard</h1>
-                <p>Welcome to your Contract Management System</p>
+                <p>Contract overview at a glance</p>
+              </div>
+            </header>
+
+            <section
+              className="dashboard-overview"
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "minmax(230px, 0.72fr) minmax(360px, 1.28fr)",
+                gap: "22px",
+                alignItems: "stretch",
+                width: "100%",
+              }}
+            >
+
+              {/* LEFT SIDE - STATISTICS */}
+              <div
+                className="dashboard-stats-grid"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr)",
+                  gridTemplateRows: "repeat(4, 1fr)",
+                  gap: "14px",
+                  alignContent: "stretch",
+                  minHeight: 0,
+                }}
+              >
+                <div className="stat-card">
+                  <div className="stat-icon blue">▤</div>
+                  <p>Total Contracts</p>
+                  <h2>{total}</h2>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon green">✓</div>
+                  <p>Active Contracts</p>
+                  <h2>{active}</h2>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon orange">◷</div>
+                  <p>Upcoming Contracts</p>
+                  <h2>{upcoming}</h2>
+                </div>
+
+                <div className="stat-card">
+                  <div className="stat-icon red">!</div>
+                  <p>Expired Contracts</p>
+                  <h2>{expired}</h2>
+                </div>
+              </div>
+
+              {/* RIGHT SIDE - ALERT BOXES */}
+              <div
+                className="dashboard-alerts-column"
+                style={{
+                  display: "grid",
+                  gridTemplateRows: "1fr 1fr",
+                  gap: "18px",
+                  minWidth: 0,
+                  minHeight: 0,
+                }}
+              >
+
+                {/* 1. EXPIRED CONTRACTS - TOP BOX */}
+                <section
+                  className="expired-contracts-panel"
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "14px",
+                    padding: "18px",
+                    minHeight: 0,
+                    boxShadow: "0 3px 12px rgba(15, 23, 42, 0.04)",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <div>
+                      <h2
+                        style={{
+                          margin: 0,
+                          fontSize: "18px",
+                          color: "#172554",
+                        }}
+                      >
+                        Expired Contracts
+                      </h2>
+
+                      <p
+                        style={{
+                          margin: "5px 0 0",
+                          color: "#64748B",
+                          fontSize: "13px",
+                        }}
+                      >
+                        Contracts that have passed their end date
+                      </p>
+                    </div>
+
+                    <span
+                      style={{
+                        padding: "5px 9px",
+                        borderRadius: "20px",
+                        background: "#FEF2F2",
+                        color: "#B91C1C",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {expiredContracts.length} EXPIRED
+                    </span>
+                  </div>
+
+                  {visibleExpiredContract ? (
+                    <div
+                      key={visibleExpiredContract.id}
+                      style={{
+                        flex: 1,
+                        border: "1px solid #FEE2E2",
+                        borderLeft: "4px solid #EF4444",
+                        borderRadius: "10px",
+                        background: "#FFFAFA",
+                        padding: "15px",
+                        animation: "expiryAlertFade 0.45s ease",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "10px",
+                          marginBottom: "10px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "#B91C1C",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          EXPIRED CONTRACT
+                        </span>
+
+                        <span
+                          style={{
+                            padding: "5px 9px",
+                            borderRadius: "20px",
+                            background: "#FEE2E2",
+                            color: "#B91C1C",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {Math.abs(
+                            getDaysLeft(visibleExpiredContract.endDate)
+                          )} days ago
+                        </span>
+                      </div>
+
+                      <h3
+                        style={{
+                          margin: "0 0 7px",
+                          color: "#1E293B",
+                          fontSize: "16px",
+                        }}
+                      >
+                        {visibleExpiredContract.contractName ||
+                          "Untitled contract"}
+                      </h3>
+
+                      <p
+                        style={{
+                          margin: "0 0 10px",
+                          color: "#64748B",
+                          fontSize: "13px",
+                        }}
+                      >
+                        Party: {visibleExpiredContract.partyName || "—"}
+                      </p>
+
+                      <div
+                        style={{
+                          borderTop: "1px solid #FECACA",
+                          paddingTop: "9px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "#64748B",
+                            fontSize: "12px",
+                          }}
+                        >
+                          End date
+                        </span>
+
+                        <p
+                          style={{
+                            margin: "4px 0 0",
+                            color: "#334155",
+                            fontSize: "14px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {formatDate(visibleExpiredContract.endDate)}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        flex: 1,
+                        minHeight: "100px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "#F8FAFC",
+                        borderRadius: "10px",
+                        color: "#64748B",
+                        fontSize: "13px",
+                      }}
+                    >
+                      No expired contracts.
+                    </div>
+                  )}
+
+                  {expiredContracts.length > 1 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginTop: "12px",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpiredSlideIndex(
+                            (current) =>
+                              (current - 1 + expiredContracts.length) %
+                              expiredContracts.length
+                          )
+                        }
+                        aria-label="Previous expired contract"
+                        style={{
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "7px",
+                          background: "#FFFFFF",
+                          color: "#475569",
+                          padding: "5px 11px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ←
+                      </button>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "6px",
+                          alignItems: "center",
+                        }}
+                      >
+                        {expiredContracts.map((contract, index) => (
+                          <button
+                            key={contract.id}
+                            type="button"
+                            onClick={() => setExpiredSlideIndex(index)}
+                            aria-label={`Show expired contract ${index + 1}`}
+                            style={{
+                              width:
+                                index === expiredSlideIndex ? "18px" : "7px",
+                              height: "7px",
+                              border: 0,
+                              borderRadius: "10px",
+                              padding: 0,
+                              background:
+                                index === expiredSlideIndex
+                                  ? "#EF4444"
+                                  : "#CBD5E1",
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpiredSlideIndex(
+                            (current) =>
+                              (current + 1) % expiredContracts.length
+                          )
+                        }
+                        aria-label="Next expired contract"
+                        style={{
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "7px",
+                          background: "#FFFFFF",
+                          color: "#475569",
+                          padding: "5px 11px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        →
+                      </button>
+                    </div>
+                  )}
+                </section>
+
+                {/* 2. EXPIRY ALERTS - BOTTOM BOX */}
+                <section
+                  className="expiry-alert-panel"
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "14px",
+                    padding: "18px",
+                    minHeight: 0,
+                    boxShadow: "0 3px 12px rgba(15, 23, 42, 0.04)",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <div>
+                      <h2
+                        style={{
+                          margin: 0,
+                          fontSize: "18px",
+                          color: "#172554",
+                        }}
+                      >
+                        Expiry Alerts
+                      </h2>
+
+                      <p
+                        style={{
+                          margin: "5px 0 0",
+                          color: "#64748B",
+                          fontSize: "13px",
+                        }}
+                      >
+                        Contracts ending in the next 5 days
+                      </p>
+                    </div>
+
+                    <span
+                      style={{
+                        padding: "5px 9px",
+                        borderRadius: "20px",
+                        background: "#FFF7ED",
+                        color: "#C2410C",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {expiringSoonContracts.length}{" "}
+                      {expiringSoonContracts.length === 1
+                        ? "ALERT"
+                        : "ALERTS"}
+                    </span>
+                  </div>
+
+                  {visibleExpiryAlert ? (
+                    <div
+                      key={visibleExpiryAlert.id}
+                      className="expiry-alert-slide"
+                      style={{
+                        flex: 1,
+                        border: "1px solid #FED7AA",
+                        borderLeft: "4px solid #F97316",
+                        borderRadius: "10px",
+                        background: "#FFFBF5",
+                        padding: "15px",
+                        animation: "expiryAlertFade 0.45s ease",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: "10px",
+                          marginBottom: "10px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "#9A3412",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          EXPIRING SOON
+                        </span>
+
+                        <span
+                          style={{
+                            color: "#B45309",
+                            background: "#FEF3C7",
+                            borderRadius: "20px",
+                            padding: "5px 9px",
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {getDaysLeft(visibleExpiryAlert.endDate)} days left
+                        </span>
+                      </div>
+
+                      <h3
+                        style={{
+                          margin: "0 0 7px",
+                          color: "#1E293B",
+                          fontSize: "16px",
+                        }}
+                      >
+                        {visibleExpiryAlert.contractName ||
+                          "Untitled contract"}
+                      </h3>
+
+                      <p
+                        style={{
+                          margin: "0 0 10px",
+                          color: "#64748B",
+                          fontSize: "13px",
+                        }}
+                      >
+                        Party: {visibleExpiryAlert.partyName || "—"}
+                      </p>
+
+                      <div
+                        style={{
+                          borderTop: "1px solid #FDE6CC",
+                          paddingTop: "9px",
+                        }}
+                      >
+                        <span
+                          style={{
+                            color: "#64748B",
+                            fontSize: "12px",
+                          }}
+                        >
+                          Expiry date
+                        </span>
+
+                        <p
+                          style={{
+                            margin: "4px 0 0",
+                            color: "#334155",
+                            fontSize: "14px",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {formatDate(visibleExpiryAlert.endDate)}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        flex: 1,
+                        minHeight: "100px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        textAlign: "center",
+                        background: "#F8FAFC",
+                        borderRadius: "10px",
+                        padding: "15px",
+                      }}
+                    >
+                      <div style={{ fontSize: "26px", marginBottom: "7px" }}>
+                        ✓
+                      </div>
+
+                      <strong
+                        style={{
+                          color: "#334155",
+                          fontSize: "14px",
+                        }}
+                      >
+                        No upcoming expiries
+                      </strong>
+
+                      <p
+                        style={{
+                          color: "#64748B",
+                          fontSize: "12px",
+                          margin: "6px 0 0",
+                        }}
+                      >
+                        No contracts are due to expire within the next 5 days.
+                      </p>
+                    </div>
+                  )}
+
+                  {expiringSoonContracts.length > 1 && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginTop: "12px",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpirySlideIndex(
+                            (current) =>
+                              (current - 1 + expiringSoonContracts.length) %
+                              expiringSoonContracts.length
+                          )
+                        }
+                        aria-label="Previous expiry alert"
+                        style={{
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "7px",
+                          background: "#FFFFFF",
+                          color: "#475569",
+                          padding: "5px 11px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        ←
+                      </button>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "6px",
+                          alignItems: "center",
+                        }}
+                      >
+                        {expiringSoonContracts.map((contract, index) => (
+                          <button
+                            key={contract.id}
+                            type="button"
+                            onClick={() => setExpirySlideIndex(index)}
+                            aria-label={`Show expiry alert ${index + 1}`}
+                            style={{
+                              width:
+                                index === expirySlideIndex ? "18px" : "7px",
+                              height: "7px",
+                              border: 0,
+                              borderRadius: "10px",
+                              padding: 0,
+                              background:
+                                index === expirySlideIndex
+                                  ? "#F97316"
+                                  : "#CBD5E1",
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpirySlideIndex(
+                            (current) =>
+                              (current + 1) % expiringSoonContracts.length
+                          )
+                        }
+                        aria-label="Next expiry alert"
+                        style={{
+                          border: "1px solid #E2E8F0",
+                          borderRadius: "7px",
+                          background: "#FFFFFF",
+                          color: "#475569",
+                          padding: "5px 11px",
+                          cursor: "pointer",
+                        }}
+                      >
+                        →
+                      </button>
+                    </div>
+                  )}
+                </section>
+
+              </div>
+            </section>
+
+            {/* Dashboard responsive styles */}
+            <style>
+              {`
+                @keyframes expiryAlertFade {
+                  from {
+                    opacity: 0;
+                    transform: translateY(7px);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateY(0);
+                  }
+                }
+
+                @media (max-width: 900px) {
+                  .dashboard-overview {
+                    grid-template-columns: minmax(0, 1fr) !important;
+                  }
+
+                  .dashboard-alerts-column {
+                    grid-template-rows: auto auto !important;
+                  }
+
+                  .dashboard-stats-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                    grid-template-rows: auto auto !important;
+                  }
+                }
+
+                @media (max-width: 560px) {
+                  .dashboard-stats-grid {
+                    grid-template-columns: minmax(0, 1fr) !important;
+                  }
+                }
+              `}
+            </style>
+          </>
+        )}
+
+        {/* ALL CONTRACTS PAGE */}
+        {currentPage === "contracts" && (
+          <>
+            <header className="topbar">
+              <div>
+                <h1>All Contracts</h1>
+                <p>
+                  View, search, filter and manage all your contract records
+                </p>
               </div>
 
               <button className="primary-btn" onClick={openAddForm}>
                 + New Contract
               </button>
             </header>
-
-            <section className="welcome-banner">
-              <div>
-                <h2>Manage Your Contracts Smarter</h2>
-                <p>
-                  Track, organize and monitor all your contracts from one place.
-                </p>
-              </div>
-              <div className="banner-symbol">📄</div>
-            </section>
-
-            <section className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-icon blue">▤</div>
-                <p>Total Contracts</p>
-                <h2>{total}</h2>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon green">✓</div>
-                <p>Active Contracts</p>
-                <h2>{active}</h2>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon orange">◷</div>
-                <p>Upcoming Contracts</p>
-                <h2>{upcoming}</h2>
-              </div>
-
-              <div className="stat-card">
-                <div className="stat-icon red">!</div>
-                <p>Expired Contracts</p>
-                <h2>{expired}</h2>
-              </div>
-            </section>
 
             <section className="contracts-section">
               <div className="section-header">
@@ -512,14 +1239,84 @@ function App() {
                 </button>
               </div>
 
-              <div className="search-box">
-                <span>⌕</span>
-                <input
-                  type="text"
-                  placeholder="Search contracts or parties..."
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
+              <div
+                className="contract-filters"
+                style={{
+                  display: "flex",
+                  alignItems: "flex-end",
+                  gap: "14px",
+                  flexWrap: "wrap",
+                  margin: "18px 0 16px",
+                }}
+              >
+                <div
+                  className="search-box"
+                  style={{
+                    flex: "1 1 320px",
+                    maxWidth: "460px",
+                    margin: 0,
+                  }}
+                >
+                  <span>⌕</span>
+
+                  <input
+                    type="text"
+                    placeholder="Search contracts or parties..."
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                  />
+                </div>
+
+                <div
+                  className="status-filter"
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                    width: "230px",
+                    maxWidth: "100%",
+                  }}
+                >
+                  <label
+                    htmlFor="statusFilter"
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "#64748B",
+                    }}
+                  >
+                    Status
+                  </label>
+
+                  <select
+                    id="statusFilter"
+                    value={statusFilter}
+                    onChange={(event) =>
+                      setStatusFilter(event.target.value)
+                    }
+                    style={{
+                      width: "100%",
+                      height: "46px",
+                      padding: "0 12px",
+                      border: "1px solid #D8DEE9",
+                      borderRadius: "7px",
+                      background: "#FFFFFF",
+                      color: "#334155",
+                      fontSize: "14px",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      outline: "none",
+                    }}
+                  >
+                    <option value="ALL">All contracts</option>
+                    <option value="ACTIVE">Active</option>
+                    <option value="EXPIRING_SOON">
+                      Expiring soon (1–5 days)
+                    </option>
+                    <option value="UPCOMING">Upcoming</option>
+                    <option value="EXPIRED">Expired</option>
+                  </select>
+                </div>
               </div>
 
               {error && <div className="error-message">{error}</div>}
@@ -548,8 +1345,8 @@ function App() {
                     ) : filteredContracts.length === 0 ? (
                       <tr>
                         <td colSpan="7" className="empty">
-                          {search
-                            ? "No contracts match your search."
+                          {search || statusFilter !== "ALL"
+                            ? "No contracts match the selected search or status filter."
                             : "No contracts found. Add your first contract."}
                         </td>
                       </tr>
@@ -584,8 +1381,45 @@ function App() {
                             </td>
 
                             <td>
-                              <span className={`status ${status.toLowerCase()}`}>
-                                {status}
+                              <span
+                                className={`status ${status.toLowerCase()}`}
+                                style={{
+                                  display: "inline-block",
+                                  padding: "6px 11px",
+                                  borderRadius: "999px",
+                                  fontWeight: 600,
+                                  fontSize: "12px",
+                                  letterSpacing: "0.2px",
+                                  backgroundColor:
+                                    status === "EXPIRED"
+                                      ? "#FEE2E2"
+                                      : status === "EXPIRING_SOON"
+                                      ? "#FEF3C7"
+                                      : status === "UPCOMING"
+                                      ? "#DBEAFE"
+                                      : "#DCFCE7",
+                                  color:
+                                    status === "EXPIRED"
+                                      ? "#B91C1C"
+                                      : status === "EXPIRING_SOON"
+                                      ? "#B45309"
+                                      : status === "UPCOMING"
+                                      ? "#1D4ED8"
+                                      : "#15803D",
+                                  border: `1px solid ${
+                                    status === "EXPIRED"
+                                      ? "#FECACA"
+                                      : status === "EXPIRING_SOON"
+                                      ? "#FDE68A"
+                                      : status === "UPCOMING"
+                                      ? "#BFDBFE"
+                                      : "#BBF7D0"
+                                  }`,
+                                }}
+                              >
+                                {status === "EXPIRING_SOON"
+                                  ? "EXPIRING SOON"
+                                  : status}
                               </span>
                             </td>
 
@@ -600,7 +1434,9 @@ function App() {
 
                                 <button
                                   className="delete-btn"
-                                  onClick={() => deleteContract(contract.id)}
+                                  onClick={() =>
+                                    deleteContract(contract.id)
+                                  }
                                   disabled={deletingId === contract.id}
                                 >
                                   {deletingId === contract.id
@@ -644,6 +1480,7 @@ function App() {
                   expiry reminders.
                 </p>
               </div>
+
               <div className="banner-symbol">📱</div>
             </section>
 
@@ -708,6 +1545,7 @@ function App() {
 
                   <form onSubmit={saveUser}>
                     <label htmlFor="userName">Full Name</label>
+
                     <input
                       id="userName"
                       name="name"
@@ -722,6 +1560,7 @@ function App() {
                     <label htmlFor="whatsappNumber">
                       WhatsApp Number
                     </label>
+
                     <input
                       id="whatsappNumber"
                       name="whatsappNumber"
@@ -842,7 +1681,7 @@ function App() {
           </>
         )}
 
-        {/* EXISTING CONTRACT MODAL */}
+        {/* ADD / EDIT CONTRACT MODAL */}
         {showForm && (
           <div
             className="modal-overlay"
@@ -854,7 +1693,9 @@ function App() {
               <div className="modal-header">
                 <div>
                   <h2>
-                    {editingId !== null ? "Edit Contract" : "Add New Contract"}
+                    {editingId !== null
+                      ? "Edit Contract"
+                      : "Add New Contract"}
                   </h2>
 
                   <p>
@@ -877,6 +1718,7 @@ function App() {
 
               <form onSubmit={saveContract}>
                 <label htmlFor="contractName">Contract Name</label>
+
                 <input
                   id="contractName"
                   name="contractName"
@@ -889,6 +1731,7 @@ function App() {
                 />
 
                 <label htmlFor="partyName">Party Name</label>
+
                 <input
                   id="partyName"
                   name="partyName"
@@ -901,6 +1744,7 @@ function App() {
                 />
 
                 <label htmlFor="description">Description</label>
+
                 <textarea
                   id="description"
                   name="description"
@@ -913,6 +1757,7 @@ function App() {
                 <div className="date-grid">
                   <div>
                     <label htmlFor="startDate">Start Date</label>
+
                     <input
                       id="startDate"
                       name="startDate"
@@ -925,6 +1770,7 @@ function App() {
 
                   <div>
                     <label htmlFor="endDate">End Date</label>
+
                     <input
                       id="endDate"
                       name="endDate"
@@ -954,8 +1800,8 @@ function App() {
                     {saving
                       ? "Saving..."
                       : editingId !== null
-                        ? "Update Contract"
-                        : "Save Contract"}
+                      ? "Update Contract"
+                      : "Save Contract"}
                   </button>
                 </div>
               </form>
